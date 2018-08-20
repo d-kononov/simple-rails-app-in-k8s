@@ -15,6 +15,6 @@ ADD Gemfile /app/Gemfile
 ADD Gemfile.lock /app/Gemfile.lock
 RUN bundle install --without development test
 ADD . /app
-RUN bundle exec rake assets:precompile
+RUN SECRET_KEY_BASE=`bin/rake secret` bin/rake assets:precompile
 
 ENTRYPOINT ["bundle", "exec"]
