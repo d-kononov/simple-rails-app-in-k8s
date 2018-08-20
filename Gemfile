@@ -58,7 +58,7 @@ group :test do
   gem 'chromedriver-helper'
 end
 
-group :development do
+group :production do
   gem 'health_check'
   gem 'mysql2', '< 0.6.0', '>= 0.4.4'
 end
