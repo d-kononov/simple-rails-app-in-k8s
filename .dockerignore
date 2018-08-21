@@ -1,0 +1,10 @@
+.git
+.gitignore
+
+README.md
+-kubernetes/*
+.circleci/*
+
+/log/*
+/tmp/*
+/node_modules

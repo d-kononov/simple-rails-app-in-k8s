@@ -1,0 +1,44 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: rake-tasks
+spec:
+  template:
+    spec:
+      containers:
+      - name: sample
+        image: gcr.io/test-d6bf8/simple:latest
+        args: ["rake", "db:migrate"]
+        env:                        # environments section
+        - name: DATABASE_NAME
+          valueFrom:
+            secretKeyRef:
+              name: simple-app-secrets
+              key: database-name
+        - name: DATABASE_USERNAME
+          valueFrom:
+            secretKeyRef:
+              name: simple-app-secrets
+              key: username
+        - name: DATABASE_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: simple-app-secrets
+              key: password
+
+      - name: cloudsql-proxy        # MySQL sidecar container
+        image: gcr.io/cloudsql-docker/gce-proxy:1.11
+        command: ["/cloud_sql_proxy",
+                  "-instances=test-d6bf8:us-central1:simple-db=tcp:3306",  # don't forget to change it
+                  "-credential_file=/secrets/cloudsql/credentials.json"]
+        volumeMounts:       # mounting volume with service-account.json file
+          - name: mysql-instance-credentials
+            mountPath: /secrets/cloudsql
+            readOnly: true
+      volumes:               # describing volume with service-account.json file
+        - name: mysql-instance-credentials
+          secret:
+            secretName: mysql-instance-credentials
+      restartPolicy: Never
+  backoffLimit: 1
+  activeDeadlineSeconds: 100

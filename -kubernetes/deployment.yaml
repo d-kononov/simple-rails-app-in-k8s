@@ -1,0 +1,121 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: sample
+spec:
+  ports:
+  - port: 80         # forward all connections from 80 to 3000 of pods
+    targetPort: 3000
+    protocol: TCP
+  type: NodePort
+  selector:
+    app: sample       # our app has name 'sample'
+---
+apiVersion: extensions/v1beta1
+kind: Deployment
+metadata:
+  name: sample
+spec:
+  replicas: 3          # we will have 3 replicas of our app
+  strategy:
+    rollingUpdate:     # strategy of how to update container (how to make a deploy)
+      maxSurge: 1
+      maxUnavailable: 1
+    type: RollingUpdate
+  template:
+    metadata:
+      labels:
+        app: sample
+    spec:
+      containers:                              # containers section
+      - name: sample
+        image: gcr.io/test-d6bf8/simple:latest # pushed image name, don't forget to change it
+        args: ["rails", "s"]
+        imagePullPolicy: Always
+        env:                                   # environments section
+        - name: DATABASE_NAME
+          valueFrom:
+            secretKeyRef:
+              name: simple-app-secrets
+              key: database-name
+        - name: DATABASE_USERNAME
+          valueFrom:
+            secretKeyRef:
+              name: simple-app-secrets
+              key: username
+        - name: DATABASE_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: simple-app-secrets
+              key: password
+        - name: SECRET_KEY_BASE
+          valueFrom:
+            secretKeyRef:
+              name: simple-app-secrets
+              key: secretkey
+        ports:
+        - containerPort: 3000       # rails will bind to 3000 port
+        livenessProbe:              # liveness probe - if app is ok, if app will not ok, it will be restarted
+          initialDelaySeconds: 20
+          periodSeconds: 10
+          failureThreshold: 4
+          httpGet:
+            path: /health_check
+            port: 3000
+        readinessProbe:             # readiness probe - when app will be ok
+          initialDelaySeconds: 25
+          periodSeconds: 10
+          failureThreshold: 4
+          httpGet:
+            path: /health_check
+            port: 3000
+        resources:                  # resources section, in which we should describe how much resources we should give to our app
+          requests:
+            memory: "512Mi"
+            cpu: "100m"
+          limits:
+            memory: "1024Mi"
+            cpu: "500m"
+      - name: cloudsql-proxy        # MySQL sidecar container
+        image: gcr.io/cloudsql-docker/gce-proxy:1.11
+        command: ["/cloud_sql_proxy",
+                  "-instances=test-d6bf8:us-central1:simple-db=tcp:3306",  # don't forget to change it
+                  "-credential_file=/secrets/cloudsql/credentials.json"]
+        volumeMounts:       # mounting volume with service-account.json file
+          - name: mysql-instance-credentials
+            mountPath: /secrets/cloudsql
+            readOnly: true
+        resources:
+          requests:
+            memory: "128Mi"
+            cpu: "100m"
+          limits:
+            memory: "512Mi"
+            cpu: "500m"
+
+      restartPolicy: Always
+      volumes:               # describing volume with service-account.json file
+        - name: mysql-instance-credentials
+          secret:
+            secretName: mysql-instance-credentials
+---
+apiVersion: autoscaling/v2beta1
+kind: HorizontalPodAutoscaler
+metadata:
+  name: sample
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1beta1
+    kind: Deployment
+    name: sample
+  minReplicas: 3
+  maxReplicas: 7
+  metrics:
+  - type: Resource
+    resource:
+      name: cpu
+      targetAverageUtilization: 70
+  - type: Resource
+    resource:
+      name: memory
+      targetAverageValue: 500Mi
