@@ -53,7 +53,16 @@ jobs:
             gcloud --quiet container clusters get-credentials ${GOOGLE_CLUSTER_NAME}
       - run:
           name: Deploy new image
-          command: kubectl patch deployment sample -p '{"spec":{"template":{"spec":{"containers":[{"name":"sample","image":"gcr.io/test-d6bf8/simple:'"$CIRCLE_SHA1"'"}]}}}}'
+          command: |
+            kubectl patch deployment sample -p '{"spec":{"template":{"spec":{"containers":[{"name":"sample","image":"gcr.io/test-d6bf8/simple:'"$CIRCLE_SHA1"'"}]}}}}'
+            if ! kubectl rollout status deploy/sample; then
+              echo "DEPLOY FAILED, ROLLING BACK TO PREVIOUS"
+              kubectl rollout undo deploy/sample
+              # Deploy failed -> notify slack
+            else
+              echo "Deploy succeeded, current version: ${CIRCLE_SHA1}"
+              # Deploy succeeded -> notify slack
+            fi
 
 workflows:
   version: 2
