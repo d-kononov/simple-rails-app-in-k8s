@@ -1,5 +1,13 @@
 # Simple rails application in Kubernetes cluster
 
+-------------
+
+_This sample is published as part of the corresponding blog article at 
+https://toptal.com/kubernetes/what-is-kubernetes_  
+_Visit https://www.toptal.com/blog and subscribe to our newsletter to read great posts_
+
+--------------
+
 Rails version: `5.2`
 
 Ruby version: `2.5.1`
